@@ -1,0 +1,7 @@
+fastapi>=0.100.0
+uvicorn[standard]>=0.23.0
+Jinja2>=3.0
+python-multipart>=0.0.6
+# aiofiles is good for async file operations, though not strictly essential for this specific FileResponse usage
+# It's often included in FastAPI projects.
+aiofiles>=23.0.0

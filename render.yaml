@@ -1,0 +1,67 @@
+# render.yaml
+# This configuration is for deploying the FastAPI application to Render.
+
+services:
+  - type: web # Specifies a web service
+    name: vm-automation-interface # Name of your service on Render
+    env: python # Environment: Python
+    runtime: python # Explicitly set runtime, Render might default but good to specify
+    pythonVersion: "3.10" # Specify a Python version supported by Render, e.g., 3.9, 3.10, 3.11
+    buildCommand: "pip install --upgrade pip && pip install -r requirements.txt" # Command to build the service
+    startCommand: "uvicorn main:app --host 0.0.0.0 --port $PORT" # Command to start the service
+    # $PORT is automatically provided by Render. Uvicorn needs to bind to 0.0.0.0.
+
+    # Health Check (optional but recommended)
+    # Render uses this to determine if your service is healthy.
+    # FastAPI typically has a default /docs or you can add a specific /health endpoint.
+    # For simplicity, we'll assume the root path (/) being available indicates health.
+    healthCheckPath: /
+
+    # Environment Variables (if any are needed by your application)
+    # envVars:
+    #   - key: PYTHON_VERSION # Example, often handled by runtime setting
+    #     value: "3.10"
+    #   - key: MY_API_KEY
+    #     generateValue: true # For Render-generated secrets
+    #   - key: ANOTHER_CONFIG
+    #     value: "some_value"
+
+    # Disk (Optional - for persistent storage if needed beyond ephemeral filesystem)
+    # If HOST_LOG_DIR needed persistence across deploys/restarts on paid plans:
+    # - name: host-logs
+    #   mountPath: /app/host_log_output # Mounts the disk at this path inside your container
+    #   sizeGB: 1 # Size of the disk in GB
+    # Note: The `host_log_output` directory will be created in the project root if a disk is not used.
+    # Files written here will be ephemeral on free plans.
+    # The application code (main.py, automate_sysmon_export_and_convert.py) currently writes to
+    # a relative 'host_log_output' directory. If using a Render Disk, ensure this path matches
+    # the mountPath or adjust your Python code to write to the disk's mountPath.
+    # For the current setup (ephemeral), no disk definition is needed here.
+
+    # Auto-Deploy (optional)
+    # autoDeploy: true # Set to false to disable auto-deploy on pushes to the connected Git repo branch
+
+    # Region (optional)
+    # region: oregon # e.g., frankfurt, ohio, oregon, singapore
+
+# Notes for deployment:
+# 1. Ensure your `requirements.txt` is up-to-date.
+# 2. The `automate_sysmon_export_and_convert.py` script contains VMware-specific commands (`vmrun`, VMX paths).
+#    These will NOT function on Render's standard containerized services as VMware is not available.
+#    The web interface and log streaming will work, but the underlying VM automation will fail if those
+#    commands are actually executed in the Render environment. This setup is primarily for demonstrating
+#    the web interface and FastAPI structure deployable to Render.
+# 3. The `HOST_LOG_DIR` is set to "host_log_output" (relative path). Files will be written here
+#    within the container's ephemeral filesystem. They will be downloadable as long as the
+#    service instance is running but will be lost on redeploy or restart.
+# 4. Connect your Git repository to Render and choose this `render.yaml` file for configuration.
+#    (Or create a "Blueprint" instance on Render and connect your repo).
+# 5. Python version: Ensure the `pythonVersion` specified matches one available on Render and
+#    is compatible with your dependencies.
+# 6. The `healthCheckPath: /` assumes your root endpoint is a good indicator of service health.
+#    If it does heavy processing, consider adding a dedicated lightweight `/health` endpoint in your FastAPI app.
+#    For example, in main.py:
+#    @app.get("/health")
+#    async def health_check():
+#        return {"status": "ok"}
+#    And then set `healthCheckPath: /health`
