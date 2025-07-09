@@ -5,3 +5,4 @@ python-multipart>=0.0.6
 # aiofiles is good for async file operations, though not strictly essential for this specific FileResponse usage
 # It's often included in FastAPI projects.
 aiofiles>=23.0.0
+httpx>=0.23.0 # For making asynchronous HTTP requests to the agent
