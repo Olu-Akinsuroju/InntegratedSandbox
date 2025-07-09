@@ -29,7 +29,7 @@ app.add_middleware(
 )
 
 # Configuration
-AGENT_URL = "http://16.171.17.45:8000" # Windows VM Agent URL
+AGENT_URL = "http://172.31.47.28:8000" # Windows VM Agent URL
 
 BASE_DIR = Path(__file__).resolve().parent
 HOST_LOG_DIR = BASE_DIR / "host_log_output"  # Main directory for FastAPI server's local storage
