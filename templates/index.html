@@ -3,31 +3,41 @@
 <head>
   <meta charset="utf-8"/>
   <link crossorigin="" href="https://fonts.gstatic.com/" rel="preconnect"/>
-  <link as="style" href="https://fonts.googleapis.com/css2?display=swap&amp;family=Inter%3Awght%40400%3B500%3B700%3B900&amp;family=Noto+Sans%3Awght%40400%3B500%3B700%3B900" onload="this.rel='stylesheet'" rel="stylesheet"/>
-  <title>VM Automation Tool</title>
+  <!-- Updated Font Links to include Space Grotesk and Material Symbols -->
+  <link as="style" href="https://fonts.googleapis.com/css2?display=swap&amp;family=Noto+Sans%3Awght%40400%3B500%3B700%3B900&amp;family=Space+Grotesk%3Awght%40400%3B500%3B700" onload="this.rel='stylesheet'" rel="stylesheet"/>
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet"/>
+
+  <title>Malware Analysis Dashboard</title> <!-- Updated Title -->
   <link href="data:image/x-icon;base64," rel="icon" type="image/x-icon"/>
   <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
   <style type="text/tailwindcss">
     :root {
-      --primary-color: #0c7ff2;
-      --secondary-color: #1f2937;
-      --text-primary: #ffffff;
-      --text-secondary: #9ca3af;
-      --background-primary: #111827;
-      --background-secondary: #1f2937;
+      /* Updated primary color to match new design */
+      --primary-color: #1993e5;
+    }
+    /* Pulsing border animation from new design */
+    .pulsing-border {
+      animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+    }
+     @keyframes pulse {
+      50% {
+        border-color: var(--primary-color);
+      }
     }
   </style>
   <style>
     body {
       min-height: max(884px, 100dvh);
-      font-family: Inter, "Noto Sans", sans-serif;
+      /* Updated font family and background to match new design */
+      font-family: "Space Grotesk", "Noto Sans", sans-serif;
+      background-color: #0F172A; /* bg-slate-900 as per new outer body */
     }
-    /* Custom scrollbar for log viewer */
+    /* Custom scrollbar for log viewer (can be reused or adapted) */
     .log-viewer::-webkit-scrollbar {
       width: 8px;
     }
     .log-viewer::-webkit-scrollbar-track {
-      background: var(--background-secondary);
+      background: #1E293B; /* slate-800 */
       border-radius: 10px;
     }
     .log-viewer::-webkit-scrollbar-thumb {
@@ -35,422 +45,384 @@
       border-radius: 10px;
     }
     .log-viewer::-webkit-scrollbar-thumb:hover {
-      background: #0a6ac0; /* Slightly darker blue on hover */
-    }
-    .status-icon svg {
-        animation-duration: 1.5s; /* For things like animate-pulse */
+      background: #137abd; /* Slightly darker primary color */
     }
   </style>
 </head>
-<body class="bg-background-primary text-text-primary">
-  <div class="relative flex size-full min-h-screen flex-col overflow-x-hidden">
-    <header class="sticky top-0 z-10 bg-background-primary/80 backdrop-blur-sm">
-      <div class="flex items-center p-4 justify-between">
-        <h1 class="text-xl font-bold tracking-tight flex-1 text-center pl-10">VM Automation</h1>
-        <div class="flex w-10 items-center justify-end">
-          <button class="flex items-center justify-center rounded-full h-10 w-10 hover:bg-background-secondary transition-colors">
-            <svg class="text-text-primary" fill="currentColor" height="24px" viewBox="0 0 256 256" width="24px" xmlns="http://www.w3.org/2000/svg">
-              <path d="M128,80a48,48,0,1,0,48,48A48.05,48.05,0,0,0,128,80Zm0,80a32,32,0,1,1,32-32A32,32,0,0,1,128,160Zm88-29.84q.06-2.16,0-4.32l14.92-18.64a8,8,0,0,0,1.48-7.06,107.21,107.21,0,0,0-10.88-26.25,8,8,0,0,0-6-3.93l-23.72-2.64q-1.48-1.56-3-3L186,40.54a8,8,0,0,0-3.94-6,107.71,107.71,0,0,0-26.25-10.87,8,8,0,0,0-7.06,1.49L130.16,40Q128,40,125.84,40L107.2,25.11a8,8,0,0,0-7.06-1.48A107.6,107.6,0,0,0,73.89,34.51a8,8,0,0,0-3.93,6L67.32,64.27q-1.56,1.49-3,3L40.54,70a8,8,0,0,0-6,3.94,107.71,107.71,0,0,0-10.87,26.25,8,8,0,0,0,1.49,7.06L40,125.84Q40,128,40,130.16L25.11,148.8a8,8,0,0,0-1.48,7.06,107.21,107.21,0,0,0,10.88,26.25,8,8,0,0,0,6,3.93l23.72,2.64q1.49,1.56,3,3L70,215.46a8,8,0,0,0,3.94,6,107.71,107.71,0,0,0,26.25,10.87,8,8,0,0,0,7.06-1.49L125.84,216q2.16.06,4.32,0l18.64,14.92a8,8,0,0,0,7.06,1.48,107.21,107.21,0,0,0,26.25-10.88,8,8,0,0,0,3.93-6l2.64-23.72q1.56-1.48,3-3L215.46,186a8,8,0,0,0,6-3.94,107.71,107.71,0,0,0,10.87-26.25,8,8,0,0,0-1.49-7.06Zm-16.1-6.5a73.93,73.93,0,0,1,0,8.68,8,8,0,0,0,1.74,5.48l14.19,17.73a91.57,91.57,0,0,1-6.23,15L187,173.11a8,8,0,0,0-5.1,2.64,74.11,74.11,0,0,1-6.14,6.14,8,8,0,0,0-2.64,5.1l-2.51,22.58a91.32,91.32,0,0,1-15,6.23l-17.74-14.19a8,8,0,0,0-5-1.75h-.48a73.93,73.93,0,0,1-8.68,0,8,8,0,0,0-5.48,1.74L100.45,215.8a91.57,91.57,0,0,1-15-6.23L82.89,187a8,8,0,0,0-2.64-5.1,74.11,74.11,0,0,1-6.14-6.14,8,8,0,0,0-5.1-2.64L46.43,170.6a91.32,91.32,0,0,1-6.23-15l14.19-17.74a8,8,0,0,0,1.74-5.48,73.93,73.93,0,0,1,0-8.68,8,8,0,0,0-1.74-5.48L40.2,100.45a91.57,91.57,0,0,1,6.23-15L69,82.89a8,8,0,0,0,5.1-2.64,74.11,74.11,0,0,1,6.14-6.14A8,8,0,0,0,82.89,69L85.4,46.43a91.32,91.32,0,0,1,15-6.23l17.74,14.19a8,8,0,0,0,5.48,1.74,73.93,73.93,0,0,1,8.68,0,8,8,0,0,0,5.48-1.74L155.55,40.2a91.57,91.57,0,0,1,15,6.23L173.11,69a8,8,0,0,0,2.64,5.1,74.11,74.11,0,0,1,6.14,6.14,8,8,0,0,0,5.1,2.64l22.58,2.51a91.32,91.32,0,0,1,6.23,15l-14.19,17.74A8,8,0,0,0,199.87,123.66Z"></path>
-            </svg>
-          </button>
+<body class="bg-gray-900 text-white">
+  <div class="relative flex size-full min-h-screen flex-col bg-[#111827] dark justify-between group/design-root overflow-x-hidden">
+    <!-- Header from the new design -->
+    <header class="flex items-center justify-between p-4 border-b border-gray-800">
+      <div class="flex items-center gap-2">
+        <span class="material-symbols-outlined text-[var(--primary-color)] text-2xl">shield</span>
+        <h1 class="text-white text-lg font-bold">MA</h1> <!-- Malware Analysis -->
+      </div>
+      <button id="menu-button" class="text-white">
+        <span class="material-symbols-outlined">menu</span>
+      </button>
+    </header>
+
+    <!-- New <main> section injected here -->
+    <main class="flex-grow flex flex-col p-4 justify-center">
+      <div id="upload-zone" class="flex flex-col items-center gap-6 rounded-lg border-2 border-dashed border-gray-700 px-6 py-20 pulsing-border cursor-pointer">
+        <div class="flex flex-col items-center gap-4">
+          <span class="material-symbols-outlined text-gray-400 text-6xl">upload_file</span>
+          <p class="text-white text-lg font-bold leading-tight text-center">
+            Drag & Drop your file here to Scan for Threats.
+          </p>
+          <p class="text-gray-400 text-sm">or <span class="text-[var(--primary-color)] font-semibold">tap to browse</span> or <span class="text-[var(--primary-color)] font-semibold">paste from clipboard</span></p>
         </div>
       </div>
-    </header>
-    <main class="flex-1 px-4 py-6 space-y-8">
-      <button id="runAutomationBtn" class="flex w-full items-center justify-center rounded-xl h-14 px-6 bg-[var(--primary-color)] text-white text-lg font-bold shadow-lg shadow-blue-500/30 hover:bg-blue-600 transition-all duration-300 ease-in-out transform hover:scale-105">
-        <svg class="mr-3" fill="currentColor" height="24" viewBox="0 0 256 256" width="24" xmlns="http://www.w3.org/2000/svg">
-          <path d="M224.49,136.49l-72,72a12,12,0,0,1-17,0l-72-72a12,12,0,0,1,17-17L112,151V40a12,12,0,0,1,24,0V151l31.51-31.52a12,12,0,0,1,17,17Z"></path>
-        </svg>
-        <span>Run Automation</span>
-      </button>
-      <section>
-        <h2 class="text-2xl font-bold tracking-tight mb-4">Status</h2>
-        <div id="statusContainer" class="space-y-4">
-          <!-- Status items will be dynamically inserted here by JavaScript -->
-          <div class="flex items-center gap-4 opacity-50">
-            <div class="status-icon flex items-center justify-center rounded-full bg-gray-500/20 text-gray-400 shrink-0 size-10">
-              <svg fill="currentColor" height="24px" viewBox="0 0 256 256" width="24px" xmlns="http://www.w3.org/2000/svg"><path d="M128,24A104,104,0,1,0,232,128,104.11,104.11,0,0,0,128,24Zm0,192a88,88,0,1,1,88-88A88.1,88.1,0,0,1,128,216Zm-8-80V80a8,8,0,0,1,16,0v56a8,8,0,0,1-16,0Zm8,24a12,12,0,1,1-12-12A12,12,0,0,1,128,160Z"></path></svg>
-            </div>
-            <div class="flex-1">
-              <p class="font-medium">Waiting to start...</p>
-              <p class="text-sm text-text-secondary">Click "Run Automation" to begin.</p>
-            </div>
-          </div>
-        </div>
-      </section>
-      <section>
-        <h2 class="text-2xl font-bold tracking-tight mb-4">Log Viewer</h2>
-        <div id="logViewer" class="bg-background-secondary rounded-lg p-4 font-mono text-sm h-60 overflow-y-auto log-viewer">
-          <!-- Log messages will be appended here -->
-          <p class="text-text-secondary">Logs will appear here once the automation starts...</p>
-        </div>
-      </section>
-      <section>
-        <h2 class="text-2xl font-bold tracking-tight mb-4">Files</h2>
-        <div id="filesContainer" class="space-y-3">
-          <!-- File download links will be dynamically inserted here -->
-          <p class="text-text-secondary">Generated files will be available for download here after completion.</p>
-        </div>
-      </section>
+      <!-- Container for dynamically added content like scanning animation, logs, and summary card -->
+      <div id="analysis-content-area" class="mt-8">
+        <!-- JS will populate this area -->
+      </div>
     </main>
-    <footer class="sticky bottom-0 bg-background-primary/80 backdrop-blur-sm border-t border-background-secondary/50 pb-safe">
-      <nav class="flex justify-around p-2">
-        <a class="flex flex-col items-center justify-center gap-1 w-20 py-1 text-[var(--primary-color)]" href="#">
-          <svg fill="currentColor" height="28px" viewBox="0 0 256 256" width="28px" xmlns="http://www.w3.org/2000/svg">
-            <path d="M224,115.55V208a16,16,0,0,1-16,16H168a16,16,0,0,1-16-16V168a8,8,0,0,0-8-8H112a8,8,0,0,0-8,8v40a16,16,0,0,1-16,16H48a16,16,0,0,1-16-16V115.55a16,16,0,0,1,5.17-11.78l80-75.48.11-.11a16,16,0,0,1,21.53,0,1.14,1.14,0,0,0,.11.11l80,75.48A16,16,0,0,1,224,115.55Z"></path>
-          </svg>
-          <span class="text-xs font-semibold">Home</span>
-        </a>
-        <a class="flex flex-col items-center justify-center gap-1 w-20 py-1 text-text-secondary hover:text-text-primary transition-colors" href="#">
-          <svg fill="currentColor" height="28px" viewBox="0 0 256 256" width="28px" xmlns="http://www.w3.org/2000/svg">
-            <path d="M224,128a8,8,0,0,1-8,8H40a8,8,0,0,1,0-16H216A8,8,0,0,1,224,128ZM40,72H216a8,8,0,0,0,0-16H40a8,8,0,0,0,0,16ZM216,184H40a8,8,0,0,0,0,16H216a8,8,0,0,0,0-16Z"></path>
-          </svg>
-          <span class="text-xs font-semibold">Logs</span>
-        </a>
-        <a class="flex flex-col items-center justify-center gap-1 w-20 py-1 text-text-secondary hover:text-text-primary transition-colors" href="#">
-          <svg fill="currentColor" height="28px" viewBox="0 0 256 256" width="28px" xmlns="http://www.w3.org/2000/svg">
-            <path d="M128,80a48,48,0,1,0,48,48A48.05,48.05,0,0,0,128,80Zm0,80a32,32,0,1,1,32-32A32,32,0,0,1,128,160Zm88-29.84q.06-2.16,0-4.32l14.92-18.64a8,8,0,0,0,1.48-7.06,107.21,107.21,0,0,0-10.88-26.25,8,8,0,0,0-6-3.93l-23.72-2.64q-1.48-1.56-3-3L186,40.54a8,8,0,0,0-3.94-6,107.71,107.71,0,0,0-26.25-10.87,8,8,0,0,0-7.06,1.49L130.16,40Q128,40,125.84,40L107.2,25.11a8,8,0,0,0-7.06-1.48A107.6,107.6,0,0,0,73.89,34.51a8,8,0,0,0-3.93,6L67.32,64.27q-1.56,1.49-3,3L40.54,70a8,8,0,0,0-6,3.94,107.71,107.71,0,0,0-10.87,26.25,8,8,0,0,0,1.49,7.06L40,125.84Q40,128,40,130.16L25.11,148.8a8,8,0,0,0-1.48,7.06,107.21,107.21,0,0,0,10.88,26.25,8,8,0,0,0,6,3.93l23.72,2.64q1.49,1.56,3,3L70,215.46a8,8,0,0,0,3.94,6,107.71,107.71,0,0,0,26.25,10.87,8,8,0,0,0,7.06-1.49L125.84,216q2.16.06,4.32,0l18.64,14.92a8,8,0,0,0,7.06,1.48,107.21,107.21,0,0,0,26.25-10.88,8,8,0,0,0,3.93-6l2.64-23.72q1.56-1.48,3-3L215.46,186a8,8,0,0,0,6-3.94,107.71,107.71,0,0,0,10.87-26.25,8,8,0,0,0-1.49-7.06Zm-16.1-6.5a73.93,73.93,0,0,1,0,8.68,8,8,0,0,0,1.74,5.48l14.19,17.73a91.57,91.57,0,0,1-6.23,15L187,173.11a8,8,0,0,0-5.1,2.64,74.11,74.11,0,0,1-6.14,6.14,8,8,0,0,0-2.64,5.1l-2.51,22.58a91.32,91.32,0,0,1-15,6.23l-17.74-14.19a8,8,0,0,0-5-1.75h-.48a73.93,73.93,0,0,1-8.68,0,8,8,0,0,0-5.48,1.74L100.45,215.8a91.57,91.57,0,0,1-15-6.23L82.89,187a8,8,0,0,0-2.64-5.1,74.11,74.11,0,0,1-6.14-6.14,8,8,0,0,0-5.1-2.64L46.43,170.6a91.32,91.32,0,0,1-6.23-15l14.19-17.74a8,8,0,0,0,1.74-5.48,73.93,73.93,0,0,1,0-8.68,8,8,0,0,0-1.74-5.48L40.2,100.45a91.57,91.57,0,0,1,6.23-15L69,82.89a8,8,0,0,0,5.1-2.64,74.11,74.11,0,0,1,6.14-6.14A8,8,0,0,0,82.89,69L85.4,46.43a91.32,91.32,0,0,1,15-6.23l17.74,14.19a8,8,0,0,0,5.48,1.74,73.93,73.93,0,0,1,8.68,0,8,8,0,0,0,5.48-1.74L155.55,40.2a91.57,91.57,0,0,1,15,6.23L173.11,69a8,8,0,0,0,2.64,5.1,74.11,74.11,0,0,1,6.14,6.14,8,8,0,0,0,5.1,2.64l22.58,2.51a91.32,91.32,0,0,1,6.23,15l-14.19,17.74A8,8,0,0,0,199.87,123.66Z"></path>
-          </svg>
-          <span class="text-xs font-semibold">Settings</span>
-        </a>
-      </nav>
+
+    <!-- Footer from the new design -->
+    <footer class="flex flex-col items-center gap-4 px-5 py-8 text-center bg-[#111827] border-t border-gray-800">
+      <div id="did-you-know-tip-container" class="flex items-center gap-2">
+        <span class="material-symbols-outlined text-[var(--primary-color)] text-xl">lightbulb</span>
+        <p id="did-you-know-text" class="text-gray-400 text-sm font-normal leading-normal">
+          <span class="font-bold text-gray-300">Did you know?</span> Enable Sysmon logging for deeper visibility.
+        </p>
+      </div>
     </footer>
   </div>
 
   <script>
     document.addEventListener('DOMContentLoaded', () => {
-      const runAutomationBtn = document.getElementById('runAutomationBtn');
-      const statusContainer = document.getElementById('statusContainer');
-      const logViewer = document.getElementById('logViewer');
-      const filesContainer = document.getElementById('filesContainer');
+      const uploadZone = document.getElementById('upload-zone');
+      const analysisContentArea = document.getElementById('analysis-content-area');
+      const didYouKnowTextElement = document.getElementById('did-you-know-text');
 
       let eventSource = null;
-      const generatedFilePaths = {
-        evtx: null,
-        csv: null
-      };
+      const reportFileUrls = { evtx: null, csv: null };
 
-      const initialStatusHtml = `
-        <div class="flex items-center gap-4 opacity-50">
-          <div class="status-icon flex items-center justify-center rounded-full bg-gray-500/20 text-gray-400 shrink-0 size-10">
-            <svg fill="currentColor" height="24px" viewBox="0 0 256 256" width="24px" xmlns="http://www.w3.org/2000/svg"><path d="M128,24A104,104,0,1,0,232,128,104.11,104.11,0,0,0,128,24Zm0,192a88,88,0,1,1,88-88A88.1,88.1,0,0,1,128,216Zm-8-80V80a8,8,0,0,1,16,0v56a8,8,0,0,1-16,0Zm8,24a12,12,0,1,1-12-12A12,12,0,0,1,128,160Z"></path></svg>
-          </div>
-          <div class="flex-1">
-            <p class="font-medium">Waiting to start...</p>
-            <p class="text-sm text-text-secondary">Click "Run Automation" to begin.</p>
-          </div>
-        </div>`;
-
-      const initialLogHtml = `<p class="text-text-secondary">Logs will appear here once the automation starts...</p>`;
-      const initialFilesHtml = `<p class="text-text-secondary">Generated files will be available for download here after completion.</p>`;
-
-      const statusPhases = [
-        { id: 'revert_vm', text: 'Reverting VM to Snapshot', keywords: ['Reverting to snapshot', 'VM Reverted'] },
-        { id: 'start_vm', text: 'Starting VM', keywords: ['Starting VM', 'VM started', 'VM Reverted and Started'] },
-        { id: 'export_sysmon', text: 'Exporting Sysmon Logs', keywords: ['Exporting Sysmon EVTX', 'Sysmon EVTX Exported'] },
-        { id: 'convert_csv', text: 'Converting Logs to CSV', keywords: ['Converting EVTX to CSV', 'EVTX to CSV Converted'] },
-        { id: 'transfer_files', text: 'Transferring Files to Host', keywords: ['Copying files to host', 'Files Copied to Host'] },
-        { id: 'completed', text: 'Automation Process Finished', keywords: ['Automation completed successfully', 'AUTOMATION_SUCCESS', 'SCRIPT_DONE'] }
+      const tips = [
+        "Enable Sysmon logging for deeper visibility into system activities.",
+        "Regularly update your malware definitions and scan engines.",
+        "Always be cautious with files from untrusted or unknown sources.",
+        "Consider using virtual machines or sandboxes for analyzing suspicious files safely.",
+        "Look for unusual network connections or processes as potential indicators of compromise."
       ];
-      let currentPhaseIndex = -1;
+      let currentTipIndex = Math.floor(Math.random() * tips.length);
 
-      function resetUI() {
-        runAutomationBtn.disabled = false;
-        runAutomationBtn.classList.remove('opacity-50', 'cursor-not-allowed');
-        runAutomationBtn.querySelector('span').textContent = 'Run Automation';
+      function rotateTip() {
+        currentTipIndex = (currentTipIndex + 1) % tips.length;
+        if (didYouKnowTextElement) {
+            didYouKnowTextElement.innerHTML = `<span class="font-bold text-gray-300">Did you know?</span> ${tips[currentTipIndex]}`;
+        }
+      }
 
-        statusContainer.innerHTML = initialStatusHtml;
-        logViewer.innerHTML = initialLogHtml;
-        filesContainer.innerHTML = initialFilesHtml;
-
-        currentPhaseIndex = -1;
-        generatedFilePaths.evtx = null;
-        generatedFilePaths.csv = null;
-
+      function clearAnalysisUI() {
+        analysisContentArea.innerHTML = '';
+        reportFileUrls.evtx = null;
+        reportFileUrls.csv = null;
         if (eventSource) {
           eventSource.close();
           eventSource = null;
         }
+        if(uploadZone) uploadZone.style.display = 'flex';
       }
 
-      function createStatusElement(id, text, status = 'pending') {
-        // Status: 'pending', 'in-progress', 'completed', 'error'
-        let iconHtml = '';
-        let bgColor = 'bg-gray-500/20';
-        let textColor = 'text-gray-400';
-        let statusText = 'Pending';
-        let pulse = false;
-
-        if (status === 'in-progress') {
-          iconHtml = `<svg fill="currentColor" height="24px" viewBox="0 0 256 256" width="24px" xmlns="http://www.w3.org/2000/svg"><path d="M128,24A104,104,0,1,0,232,128,104.11,104.11,0,0,0,128,24Zm0,192a88,88,0,1,1,88-88A88.1,88.1,0,0,1,128,216Zm64-88a8,8,0,0,1-8,8H128a8,8,0,0,1-8-8V72a8,8,0,0,1,16,0v48h48A8,8,0,0,1,192,128Z"></path></svg>`;
-          bgColor = 'bg-yellow-500/20';
-          textColor = 'text-yellow-400';
-          statusText = 'In Progress';
-          pulse = true;
-        } else if (status === 'completed') {
-          iconHtml = `<svg fill="currentColor" height="24px" viewBox="0 0 256 256" width="24px" xmlns="http://www.w3.org/2000/svg"><path d="M173.66,98.34a8,8,0,0,1,0,11.32l-56,56a8,8,0,0,1-11.32,0l-24-24a8,8,0,0,1,11.32-11.32L112,148.69l50.34-50.35A8,8,0,0,1,173.66,98.34ZM232,128A104,104,0,1,1,128,24,104.11,104.11,0,0,1,232,128Zm-16,0a88,88,0,1,0-88,88A88.1,88.1,0,0,0,216,128Z"></path></svg>`;
-          bgColor = 'bg-green-500/20';
-          textColor = 'text-green-400';
-          statusText = 'Completed';
-        } else if (status === 'error') {
-          iconHtml = `<svg fill="currentColor" height="24px" viewBox="0 0 256 256" width="24px" xmlns="http://www.w3.org/2000/svg"><path d="M128,24a104,104,0,1,0,232,128,104.11,104.11,0,0,0-128-24Zm0,192a88,88,0,1,1,88-88A88.1,88.1,0,0,1,128,216Zm-8-80V80a8,8,0,0,1,16,0v56a8,8,0,0,1-16,0Zm8,24a12,12,0,1,1-12-12A12,12,0,0,1,128,160Z"></path></svg>`; // Error icon (e.g. exclamation)
-          bgColor = 'bg-red-500/20';
-          textColor = 'text-red-400';
-          statusText = 'Error';
-        } else { // pending
-          iconHtml = `<svg fill="currentColor" height="24px" viewBox="0 0 256 256" width="24px" xmlns="http://www.w3.org/2000/svg"><path d="M128,24A104,104,0,1,0,232,128,104.11,104.11,0,0,0,128,24Zm0,192a88,88,0,1,1,88-88A88.1,88.1,0,0,1,128,216Zm-8-80V80a8,8,0,0,1,16,0v56a8,8,0,0,1-16,0Zm8,24a12,12,0,1,1-12-12A12,12,0,0,1,128,160Z"></path></svg>`; // Pending icon (info or clock)
-        }
-
-        return `
-          <div id="status-${id}" class="flex items-center gap-4">
-            <div class="status-icon flex items-center justify-center rounded-full ${bgColor} ${textColor} shrink-0 size-10 ${pulse ? 'animate-pulse' : ''}">
-              ${iconHtml}
+      function showScanningState(fileName) {
+        if(uploadZone) uploadZone.style.display = 'none';
+        analysisContentArea.innerHTML = `
+          <div class="flex flex-col items-center justify-center p-6 bg-gray-800 rounded-lg shadow-md">
+            <div class="relative w-20 h-20">
+              <svg class="absolute inset-0 animate-spin w-full h-full text-[var(--primary-color)]" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3"></circle>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+              </svg>
+              <span class="material-symbols-outlined absolute inset-0 flex items-center justify-center text-3xl text-[var(--primary-color)]">security</span>
             </div>
-            <div class="flex-1">
-              <p class="font-medium">${text}</p>
-              <p class="status-text text-sm text-text-secondary">${statusText}</p>
+            <p class="text-white mt-4 text-lg">Scanning: <span class="font-semibold">${fileName}</span></p>
+            <p id="scan-stage-text" class="text-gray-400 text-sm mt-1">Initializing...</p>
+            <div class="w-full max-w-md mt-6">
+                <button id="toggle-logs-btn" class="w-full text-sm text-[var(--primary-color)] py-2 px-3 rounded-md hover:bg-gray-700 transition-colors mb-2">Show Live Logs</button>
+                <div id="live-logs-panel" class="w-full bg-gray-900 rounded-lg p-3 text-xs font-mono h-40 overflow-y-auto log-viewer hidden">
+                    <div id="live-logs-content"><!-- Logs will appear here --></div>
+                </div>
             </div>
-          </div>
-        `;
-      }
+          </div>`;
 
-      function updateStatusUI(logMessage) {
-        if (currentPhaseIndex + 1 >= statusPhases.length) return;
-
-        const nextPhase = statusPhases[currentPhaseIndex + 1];
-        let phaseMatched = false;
-
-        for (const keyword of nextPhase.keywords) {
-            if (logMessage.includes(keyword)) {
-                phaseMatched = true;
-                break;
-            }
-        }
-
-        if (phaseMatched) {
-            // Mark previous phase as completed if it exists and wasn't an error
-            if (currentPhaseIndex >= 0) {
-                const prevPhase = statusPhases[currentPhaseIndex];
-                const prevStatusElement = document.getElementById(`status-${prevPhase.id}`);
-                if (prevStatusElement && !prevStatusElement.querySelector('.text-red-400')) {
-                     const iconDiv = prevStatusElement.querySelector('.status-icon');
-                     iconDiv.classList.remove('bg-yellow-500/20', 'text-yellow-400', 'animate-pulse');
-                     iconDiv.classList.add('bg-green-500/20', 'text-green-400');
-                     iconDiv.innerHTML = `<svg fill="currentColor" height="24px" viewBox="0 0 256 256" width="24px" xmlns="http://www.w3.org/2000/svg"><path d="M173.66,98.34a8,8,0,0,1,0,11.32l-56,56a8,8,0,0,1-11.32,0l-24-24a8,8,0,0,1,11.32-11.32L112,148.69l50.34-50.35A8,8,0,0,1,173.66,98.34ZM232,128A104,104,0,1,1,128,24,104.11,104.11,0,0,1,232,128Zm-16,0a88,88,0,1,0-88,88A88.1,88.1,0,0,0,216,128Z"></path></svg>`;
-                     prevStatusElement.querySelector('.status-text').textContent = 'Completed';
-                }
-            }
-            currentPhaseIndex++;
-
-            // If this is not the final "completed" phase, mark it as in-progress
-            if (nextPhase.id !== 'completed') {
-                const currentStatusElement = document.getElementById(`status-${nextPhase.id}`);
-                const iconDiv = currentStatusElement.querySelector('.status-icon');
-                iconDiv.classList.remove('bg-gray-500/20', 'text-gray-400');
-                iconDiv.classList.add('bg-yellow-500/20', 'text-yellow-400', 'animate-pulse');
-                iconDiv.innerHTML = `<svg fill="currentColor" height="24px" viewBox="0 0 256 256" width="24px" xmlns="http://www.w3.org/2000/svg"><path d="M128,24A104,104,0,1,0,232,128,104.11,104.11,0,0,0,128,24Zm0,192a88,88,0,1,1,88-88A88.1,88.1,0,0,1,128,216Zm64-88a8,8,0,0,1-8,8H128a8,8,0,0,1-8-8V72a8,8,0,0,1,16,0v48h48A8,8,0,0,1,192,128Z"></path></svg>`;
-                currentStatusElement.querySelector('.status-text').textContent = 'In Progress';
-            } else { // This is the "completed" phase
-                 const currentStatusElement = document.getElementById(`status-${nextPhase.id}`);
-                 const iconDiv = currentStatusElement.querySelector('.status-icon');
-                 iconDiv.classList.remove('bg-gray-500/20', 'text-gray-400', 'animate-pulse');
-                 iconDiv.classList.add('bg-green-500/20', 'text-green-400');
-                 iconDiv.innerHTML = `<svg fill="currentColor" height="24px" viewBox="0 0 256 256" width="24px" xmlns="http://www.w3.org/2000/svg"><path d="M173.66,98.34a8,8,0,0,1,0,11.32l-56,56a8,8,0,0,1-11.32,0l-24-24a8,8,0,0,1,11.32-11.32L112,148.69l50.34-50.35A8,8,0,0,1,173.66,98.34ZM232,128A104,104,0,1,1,128,24,104.11,104.11,0,0,1,232,128Zm-16,0a88,88,0,1,0-88,88A88.1,88.1,0,0,0,216,128Z"></path></svg>`;
-                 currentStatusElement.querySelector('.status-text').textContent = 'Completed';
-            }
-        } else if (logMessage.includes("ERROR") || logMessage.includes("FAILED") || logMessage.includes("CRITICAL_ERROR")) {
-             // Mark current or next phase as error if an error message appears
-            const phaseToMarkError = statusPhases[currentPhaseIndex +1] || statusPhases[currentPhaseIndex];
-            if (phaseToMarkError) {
-                const errorStatusElement = document.getElementById(`status-${phaseToMarkError.id}`);
-                if(errorStatusElement) {
-                    const iconDiv = errorStatusElement.querySelector('.status-icon');
-                    iconDiv.classList.remove('bg-yellow-500/20', 'text-yellow-400', 'animate-pulse', 'bg-gray-500/20', 'text-gray-400');
-                    iconDiv.classList.add('bg-red-500/20', 'text-red-400');
-                    iconDiv.innerHTML = `<svg fill="currentColor" height="24px" viewBox="0 0 256 256" width="24px" xmlns="http://www.w3.org/2000/svg"><path d="M128,24a104,104,0,1,0,232,128,104.11,104.11,0,0,0-128-24Zm0,192a88,88,0,1,1,88-88A88.1,88.1,0,0,1,128,216Zm-8-80V80a8,8,0,0,1,16,0v56a8,8,0,0,1-16,0Zm8,24a12,12,0,1,1-12-12A12,12,0,0,1,128,160Z"></path></svg>`;
-                    errorStatusElement.querySelector('.status-text').textContent = 'Error';
-                }
-            }
+        const toggleBtn = document.getElementById('toggle-logs-btn');
+        const logsPanel = document.getElementById('live-logs-panel');
+        if(toggleBtn && logsPanel){
+            toggleBtn.addEventListener('click', () => {
+                logsPanel.classList.toggle('hidden');
+                toggleBtn.textContent = logsPanel.classList.contains('hidden') ? 'Show Live Logs' : 'Hide Live Logs';
+            });
         }
       }
 
-      function appendLogMessage(message) {
-        if (logViewer.innerHTML === initialLogHtml) {
-          logViewer.innerHTML = ''; // Clear placeholder
+      function updateScanStageText(message) {
+        const stageTextElement = document.getElementById('scan-stage-text');
+        if (stageTextElement) {
+          if(message.startsWith("[STAGE]")){
+            stageTextElement.textContent = message.substring("[STAGE]".length).split("...")[0].trim();
+          } else if (message.startsWith("Scan process starting")) {
+            stageTextElement.textContent = "Initiating scan sequence...";
+          } else if (message.startsWith("--- Malware Analysis Script Finished ---")) {
+            stageTextElement.textContent = "Finalizing report...";
+          }
         }
+      }
+
+      function appendLiveLog(rawMessage) {
+        const logsContent = document.getElementById('live-logs-content');
+        if (!logsContent) return;
+
+        // Remove "data: " prefix if present (common in SSE)
+        const message = rawMessage.startsWith('data: ') ? rawMessage.substring(6) : rawMessage;
+
+        // Skip empty messages or the final JSON event here
+        if (!message.trim() || message.startsWith('{"event":"scan_complete"')) return;
+
         const p = document.createElement('p');
-        let displayMessage = message;
+        p.className = 'whitespace-pre-wrap break-all text-gray-300';
 
-        // Simple coloring for common patterns
         if (message.startsWith('[INFO]') || message.startsWith('[VMRUN]')) {
-            p.innerHTML = `<span class="text-blue-400 mr-1">${message.substring(0, message.indexOf(']') + 1)}</span> ${message.substring(message.indexOf(']') + 2)}`;
-        } else if (message.startsWith('[OK]') || message.startsWith('[STAGE_COMPLETE]') || message.startsWith('[AUTOMATION_SUCCESS]')) {
-            p.innerHTML = `<span class="text-green-400 mr-1">${message.substring(0, message.indexOf(']') + 1)}</span> ${message.substring(message.indexOf(']') + 2)}`;
+            p.innerHTML = `<span class="text-blue-400">${message.split(']')[0]}]</span> ${message.substring(message.indexOf(']') + 2)}`;
+        } else if (message.startsWith('[STAGE_COMPLETE]') || message.startsWith('[AUTOMATION_SUCCESS]')) {
+            p.innerHTML = `<span class="text-green-400">${message.split(']')[0]}]</span> ${message.substring(message.indexOf(']') + 2)}`;
         } else if (message.startsWith('[ERROR]') || message.startsWith('[VMRUN_ERROR]') || message.startsWith('[CRITICAL_ERROR]') || message.startsWith('[AUTOMATION_FAILED]')) {
-            p.innerHTML = `<span class="text-red-400 mr-1">${message.substring(0, message.indexOf(']') + 1)}</span> ${message.substring(message.indexOf(']') + 2)}`;
+            p.innerHTML = `<span class="text-red-400">${message.split(']')[0]}]</span> ${message.substring(message.indexOf(']') + 2)}`;
         } else if (message.startsWith('[WARN]') || message.startsWith('[VMRUN_WARNING]')) {
-            p.innerHTML = `<span class="text-yellow-400 mr-1">${message.substring(0, message.indexOf(']') + 1)}</span> ${message.substring(message.indexOf(']') + 2)}`;
+            p.innerHTML = `<span class="text-yellow-400">${message.split(']')[0]}]</span> ${message.substring(message.indexOf(']') + 2)}`;
         } else if (message.startsWith('[STAGE]')) {
-            p.innerHTML = `<span class="text-purple-400 mr-1">${message.substring(0, message.indexOf(']') + 1)}</span> ${message.substring(message.indexOf(']') + 2)}`;
+            p.innerHTML = `<span class="text-purple-400">${message.split(']')[0]}]</span> ${message.substring(message.indexOf(']') + 2)}`;
         } else {
             p.textContent = message;
         }
-
-        logViewer.appendChild(p);
-        logViewer.scrollTop = logViewer.scrollHeight; // Auto-scroll
+        logsContent.appendChild(p);
+        logsContent.scrollTop = logsContent.scrollHeight;
       }
 
-      function updateFileLinks() {
-        filesContainer.innerHTML = ''; // Clear placeholder or old links
-        let foundFiles = false;
+      function displayThreatSummary(summary) {
+        clearAnalysisUI();
+        const { evtxUrl, csvUrl, threatLevel, threatFamily, confidence, indicators, analyzedFile } = summary;
 
-        if (generatedFilePaths.evtx) {
-          const fileNameEvtx = generatedFilePaths.evtx.split(/\/|\\/).pop();
-          const fileSizeEvtx = "N/A"; // Placeholder, actual size requires another call or info from script
-          filesContainer.appendChild(createFileElement(fileNameEvtx, fileSizeEvtx, `/download/${encodeURIComponent(generatedFilePaths.evtx)}`));
-          foundFiles = true;
-        }
-        if (generatedFilePaths.csv) {
-          const fileNameCsv = generatedFilePaths.csv.split(/\/|\\/).pop();
-          const fileSizeCsv = "N/A"; // Placeholder
-          filesContainer.appendChild(createFileElement(fileNameCsv, fileSizeCsv, `/download/${encodeURIComponent(generatedFilePaths.csv)}`));
-          foundFiles = true;
+        reportFileUrls.evtx = evtxUrl;
+        reportFileUrls.csv = csvUrl;
+
+        let threatColorClass = 'bg-gray-600 text-gray-100';
+        let threatIcon = 'help'; // Default icon
+
+        switch (String(threatLevel).toLowerCase()) {
+            case 'critical': threatColorClass = 'bg-red-700 text-red-100'; threatIcon = 'gpp_bad'; break;
+            case 'high':     threatColorClass = 'bg-red-500 text-red-100'; threatIcon = 'warning'; break;
+            case 'medium':   threatColorClass = 'bg-yellow-500 text-yellow-100'; threatIcon = 'report_problem'; break;
+            case 'low':      threatColorClass = 'bg-green-500 text-green-100'; threatIcon = 'verified_user'; break;
+            case 'informational': threatColorClass = 'bg-blue-500 text-blue-100'; threatIcon = 'info'; break;
+            default:         threatLevel = threatLevel || "N/A";
         }
 
-        if (!foundFiles) {
-            filesContainer.innerHTML = '<p class="text-text-secondary">No files generated or an error occurred.</p>';
-        }
+        const indicatorsHtml = Array.isArray(indicators) && indicators.length > 0
+            ? indicators.map(ind => `<li class="text-gray-300 flex items-start"><span class="material-symbols-outlined text-sm text-[var(--primary-color)] mr-2 mt-1">flag</span>${ind}</li>`).join('')
+            : '<li class="text-gray-400">No specific indicators identified.</li>';
+
+        analysisContentArea.innerHTML = `
+          <div class="bg-gray-800 rounded-lg shadow-xl p-6 w-full max-w-lg mx-auto">
+            <div class="text-center mb-6">
+              <span class="material-symbols-outlined text-5xl ${threatColorClass.split(' ')[1]} mb-2">${threatIcon}</span>
+              <h2 class="text-3xl font-bold text-white">Scan Report: ${analyzedFile || 'File'}</h2>
+              <p class="text-sm text-gray-400">Analysis completed.</p>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6 text-center">
+              <div>
+                <span class="text-xs text-gray-400 block uppercase tracking-wider">Threat Level</span>
+                <span class="px-3 py-1 mt-1 text-base font-semibold ${threatColorClass} rounded-full inline-block">${threatLevel}</span>
+              </div>
+              <div>
+                <span class="text-xs text-gray-400 block uppercase tracking-wider">Malware Family</span>
+                <p class="text-lg text-white mt-1">${threatFamily || 'Undetermined'}</p>
+              </div>
+              <div>
+                <span class="text-xs text-gray-400 block uppercase tracking-wider">Confidence</span>
+                <p class="text-lg text-white mt-1">${confidence || 'N/A'}</p>
+              </div>
+            </div>
+
+            <div class="mb-6 bg-gray-900 p-4 rounded-md">
+              <h3 class="text-lg font-semibold text-white mb-2 flex items-center"><span class="material-symbols-outlined text-[var(--primary-color)] mr-2">checklist</span>Key Indicators</h3>
+              <ul class="space-y-1 pl-1">${indicatorsHtml}</ul>
+            </div>
+
+            <div class="flex flex-col sm:flex-row gap-3 mb-3">
+              ${reportFileUrls.evtx ? `<a href="/download/${encodeURIComponent(reportFileUrls.evtx)}" download class="flex-1 text-center bg-[var(--primary-color)] hover:bg-blue-500 text-white font-semibold py-2.5 px-4 rounded-lg transition-colors duration-150 ease-in-out flex items-center justify-center gap-2"><span class="material-symbols-outlined text-lg">description</span>Download EVTX</a>` : ''}
+              ${reportFileUrls.csv ? `<a href="/download/${encodeURIComponent(reportFileUrls.csv)}" download class="flex-1 text-center bg-gray-600 hover:bg-gray-500 text-white font-semibold py-2.5 px-4 rounded-lg transition-colors duration-150 ease-in-out flex items-center justify-center gap-2"><span class="material-symbols-outlined text-lg">list_alt</span>Download CSV</a>` : ''}
+            </div>
+            <button id="copy-report-link-btn" class="w-full bg-transparent hover:bg-gray-700/50 text-[var(--primary-color)] font-semibold py-2.5 px-4 border border-[var(--primary-color)] rounded-lg transition-colors duration-150 ease-in-out flex items-center justify-center gap-2">
+              <span class="material-symbols-outlined text-lg">link</span>Copy Report Link
+            </button>
+            <p id="copy-link-feedback" class="text-xs text-green-400 text-center mt-2 h-4"></p>
+          </div>`;
+
+        document.getElementById('copy-report-link-btn')?.addEventListener('click', () => {
+            const shareableLink = window.location.href + "?report_id=" + encodeURIComponent(analyzedFile || 'scan'); // Placeholder ID
+            const feedbackEl = document.getElementById('copy-link-feedback');
+            navigator.clipboard.writeText(shareableLink).then(() => {
+                if(feedbackEl) feedbackEl.textContent = 'Link copied to clipboard!';
+                setTimeout(() => { if(feedbackEl) feedbackEl.textContent = ''; }, 2000);
+            }).catch(err => {
+                console.error('Failed to copy link: ', err);
+                if(feedbackEl) feedbackEl.textContent = 'Failed to copy.';
+                setTimeout(() => { if(feedbackEl) feedbackEl.textContent = ''; }, 2000);
+            });
+        });
+        rotateTip();
       }
 
-      function createFileElement(name, size, downloadUrl) {
-        const div = document.createElement('div');
-        div.className = 'flex items-center gap-4 bg-background-secondary p-3 rounded-lg';
-        div.innerHTML = `
-          <div class="text-white flex items-center justify-center rounded-lg bg-gray-700 shrink-0 size-12">
-            <svg fill="currentColor" height="28px" viewBox="0 0 256 256" width="28px" xmlns="http://www.w3.org/2000/svg">
-              <path d="M213.66,82.34l-56-56A8,8,0,0,0,152,24H56A16,16,0,0,0,40,40V216a16,16,0,0,0,16,16H200a16,16,0,0,0,16-16V88A8,8,0,0,0,213.66,82.34ZM160,51.31,188.69,80H160ZM200,216H56V40h88V88a8,8,0,0,0,8,8h48V216Z"></path>
-            </svg>
-          </div>
-          <div class="flex-1">
-            <p class="font-medium">${name}</p>
-            <p class="text-sm text-text-secondary">${size}</p>
-          </div>
-          <a href="${downloadUrl}" download="${name}" class="shrink-0 flex items-center justify-center size-10 rounded-full hover:bg-gray-700/50 transition-colors" title="Download ${name}">
-            <svg fill="currentColor" height="24px" viewBox="0 0 256 256" width="24px" xmlns="http://www.w3.org/2000/svg">
-              <path d="M224,152v56a16,16,0,0,1-16,16H48a16,16,0,0,1-16-16V152a8,8,0,0,1,16,0v56H208V152a8,8,0,0,1,16,0Zm-101.66,5.66a8,8,0,0,0,11.32,0l40-40a8,8,0,0,0-11.32-11.32L136,132.69V40a8,8,0,0,0-16,0v92.69L93.66,106.34a8,8,0,0,0-11.32,11.32Z"></path>
-            </svg>
-          </a>`;
-        return div;
-      }
+      if (uploadZone) {
+        const fileInput = document.createElement('input');
+        fileInput.type = 'file';
+        fileInput.accept = '*/*';
+        fileInput.style.display = 'none';
+        document.body.appendChild(fileInput); // Append to body to ensure it's part of DOM for click
 
+        uploadZone.addEventListener('click', () => fileInput.click());
 
-      runAutomationBtn.addEventListener('click', () => {
-        if (runAutomationBtn.disabled) return;
-
-        resetUI(); // Clear previous state before starting new one
-
-        runAutomationBtn.disabled = true;
-        runAutomationBtn.classList.add('opacity-50', 'cursor-not-allowed');
-        runAutomationBtn.querySelector('span').textContent = 'Processing...';
-
-        logViewer.innerHTML = '<p class="text-text-secondary">Initializing automation process...</p>';
-        filesContainer.innerHTML = '<p class="text-text-secondary">Waiting for files...</p>';
-
-        // Prepare status UI
-        statusContainer.innerHTML = ''; // Clear "Waiting to start..."
-        statusPhases.forEach(phase => {
-            statusContainer.appendChild(new DOMParser().parseFromString(createStatusElement(phase.id, phase.text, 'pending'), 'text/html').body.firstChild);
+        ['dragenter', 'dragover'].forEach(eventName => {
+            uploadZone.addEventListener(eventName, (e) => {
+                e.preventDefault(); e.stopPropagation();
+                uploadZone.classList.add('border-[var(--primary-color)]', 'bg-gray-800/50');
+            });
+        });
+        ['dragleave', 'drop'].forEach(eventName => {
+            uploadZone.addEventListener(eventName, (e) => {
+                e.preventDefault(); e.stopPropagation();
+                uploadZone.classList.remove('border-[var(--primary-color)]', 'bg-gray-800/50');
+            });
+        });
+        uploadZone.addEventListener('drop', (e) => {
+          const files = e.dataTransfer.files;
+          if (files.length > 0) handleFileUpload(files[0]);
+        });
+        fileInput.addEventListener('change', (e) => {
+          const files = e.target.files;
+          if (files.length > 0) {
+            handleFileUpload(files[0]);
+            fileInput.value = '';
+          }
         });
 
+        document.addEventListener('paste', (event) => {
+            let isPastingOnUploadZone = uploadZone.contains(event.target) || event.target === uploadZone;
+            if (!isPastingOnUploadZone && uploadZone.style.display !== 'none') {
+                if (!(event.target instanceof HTMLInputElement || event.target instanceof HTMLTextAreaElement || event.target.isContentEditable)) {
+                    isPastingOnUploadZone = true;
+                }
+            }
+            if (isPastingOnUploadZone) {
+                const items = (event.clipboardData || window.clipboardData).items;
+                let fileToUpload = null;
+                for (const item of items) {
+                    if (item.kind === 'file') { fileToUpload = item.getAsFile(); break; }
+                }
+                if (fileToUpload) { event.preventDefault(); handleFileUpload(fileToUpload); }
+            }
+        });
+      }
 
-        eventSource = new EventSource('/run-automation');
+      function handleFileUpload(file) {
+        if (!file) return;
+        showScanningState(file.name);
+
+        const formData = new FormData();
+        formData.append('file', file);
+
+        fetch('/upload', { method: 'POST', body: formData })
+        .then(response => {
+            if (!response.ok) {
+                return response.json().then(errData => { throw new Error(errData.detail || `Upload failed: ${response.statusText}`); });
+            }
+            return response.json();
+        })
+        .then(data => {
+          if (data.filePath) startScan(data.filePath);
+          else throw new Error('File path not returned from upload.');
+        })
+        .catch(error => {
+          console.error('Upload error:', error);
+          clearAnalysisUI();
+          analysisContentArea.innerHTML = `<div class="text-center p-4"><p class="text-red-400">Upload failed: ${error.message}.</p><button id="try-again-btn" class="mt-2 px-4 py-2 bg-[var(--primary-color)] text-white rounded hover:bg-blue-500">Try Again</button></div>`;
+          document.getElementById('try-again-btn')?.addEventListener('click', clearAnalysisUI);
+        });
+      }
+
+      function startScan(filePath) {
+        updateScanStageText("Scan initiated for: " + filePath.split(/[/\\]/).pop());
+
+        eventSource = new EventSource(`/start-scan?file_path=${encodeURIComponent(filePath)}`);
 
         eventSource.onopen = () => {
-          appendLogMessage('Connection to server established. Starting automation...');
+          appendLiveLog('data: Connection to scan server established...');
+          updateScanStageText("Connection established. Starting analysis...");
         };
 
         eventSource.onmessage = (event) => {
-          const message = event.data;
-          appendLogMessage(message);
-          updateStatusUI(message);
+          const rawMessage = event.data;
 
-          if (message.startsWith("EVTX_FILE:")) {
-            generatedFilePaths.evtx = message.substring("EVTX_FILE:".length).trim();
-          } else if (message.startsWith("CSV_FILE:")) {
-            generatedFilePaths.csv = message.substring("CSV_FILE:".length).trim();
+          try {
+            const parsedEvent = JSON.parse(rawMessage); // SSE data is always string
+            if (parsedEvent.event === 'scan_complete' && parsedEvent.data) {
+              displayThreatSummary(parsedEvent.data);
+              if(eventSource) eventSource.close();
+              return;
+            }
+             appendLiveLog(rawMessage); // Log other JSON messages as is
+          } catch (e) {
+            // Not a JSON event, treat as a normal log line
+            appendLiveLog(rawMessage); // rawMessage already includes "data: " if sent like that by server
+            updateScanStageText(rawMessage.startsWith('data: ') ? rawMessage.substring(6) : rawMessage);
           }
 
-          if (message === 'SCRIPT_DONE' || message === 'SCRIPT_ERROR' || message === 'Automation completed successfully.' || message.includes("AUTOMATION_FAILED")) {
-            eventSource.close();
-            runAutomationBtn.disabled = false;
-            runAutomationBtn.classList.remove('opacity-50', 'cursor-not-allowed');
-            runAutomationBtn.querySelector('span').textContent = 'Run Automation Again';
-
-            // Ensure final status update if not already done by keyword
-            if (message === 'SCRIPT_DONE' || message === 'Automation completed successfully.') {
-                const completedPhase = statusPhases.find(p => p.id === 'completed');
-                if(completedPhase) {
-                    const statusEl = document.getElementById(`status-${completedPhase.id}`);
-                    if (statusEl) {
-                         const iconDiv = statusEl.querySelector('.status-icon');
-                         iconDiv.classList.remove('bg-gray-500/20', 'text-gray-400', 'animate-pulse', 'bg-yellow-500/20', 'text-yellow-400');
-                         iconDiv.classList.add('bg-green-500/20', 'text-green-400');
-                         iconDiv.innerHTML = `<svg fill="currentColor" height="24px" viewBox="0 0 256 256" width="24px" xmlns="http://www.w3.org/2000/svg"><path d="M173.66,98.34a8,8,0,0,1,0,11.32l-56,56a8,8,0,0,1-11.32,0l-24-24a8,8,0,0,1,11.32-11.32L112,148.69l50.34-50.35A8,8,0,0,1,173.66,98.34ZM232,128A104,104,0,1,1,128,24,104.11,104.11,0,0,1,232,128Zm-16,0a88,88,0,1,0-88,88A88.1,88.1,0,0,0,216,128Z"></path></svg>`;
-                         statusEl.querySelector('.status-text').textContent = 'Completed';
-                    }
-                }
-            } else if (message === 'SCRIPT_ERROR' || message.includes("AUTOMATION_FAILED")) {
-                // Ensure last active or next pending phase is marked as error
-                let errorPhaseIdx = currentPhaseIndex +1 < statusPhases.length ? currentPhaseIndex + 1 : currentPhaseIndex;
-                errorPhaseIdx = errorPhaseIdx < 0 ? 0 : errorPhaseIdx; // handle case where no phase started
-
-                if (errorPhaseIdx < statusPhases.length) {
-                    const errorPhase = statusPhases[errorPhaseIdx];
-                    const statusEl = document.getElementById(`status-${errorPhase.id}`);
-                     if (statusEl) {
-                        const iconDiv = statusEl.querySelector('.status-icon');
-                        iconDiv.classList.remove('bg-gray-500/20', 'text-gray-400', 'animate-pulse', 'bg-yellow-500/20', 'text-yellow-400');
-                        iconDiv.classList.add('bg-red-500/20', 'text-red-400');
-                        // Error icon
-                        iconDiv.innerHTML = `<svg fill="currentColor" height="24px" viewBox="0 0 256 256" width="24px" xmlns="http://www.w3.org/2000/svg"><path d="M128,24a104,104,0,1,0,232,128,104.11,104.11,0,0,0-128-24Zm0,192a88,88,0,1,1,88-88A88.1,88.1,0,0,1,128,216Zm-8-80V80a8,8,0,0,1,16,0v56a8,8,0,0,1-16,0Zm8,24a12,12,0,1,1-12-12A12,12,0,0,1,128,160Z"></path></svg>`;
-                        statusEl.querySelector('.status-text').textContent = 'Error';
-                    }
-                }
-                 appendLogMessage("Automation process ended with an error.");
+          // Fallback for script completion if scan_complete JSON not received
+          const messageContent = rawMessage.startsWith('data: ') ? rawMessage.substring(6) : rawMessage;
+          if (messageContent === 'SCRIPT_DONE' || messageContent === 'Automation completed successfully.') {
+            appendLiveLog("data: Scan process marked as DONE by script (fallback).");
+            if (!document.getElementById('copy-report-link-btn')) {
+                 displayThreatSummary({
+                    threatLevel: 'Unknown', threatFamily: 'N/A', confidence: 'N/A',
+                    indicators: ['Scan ended via SCRIPT_DONE. Final structured report might be missing.'],
+                    evtxUrl: reportFileUrls.evtx, csvUrl: reportFileUrls.csv, analyzedFile: filePath.split(/[/\\]/).pop()
+                });
             }
-            updateFileLinks();
+            if(eventSource) eventSource.close();
+          } else if (messageContent === 'SCRIPT_ERROR' || messageContent.includes("AUTOMATION_FAILED")) {
+            appendLiveLog("data: Scan process encountered an ERROR (fallback).");
+             if (!document.getElementById('copy-report-link-btn')) {
+                displayThreatSummary({
+                    threatLevel: 'Error', threatFamily: 'N/A', confidence: 'N/A',
+                    indicators: ['Scan failed or ended with an error.'],
+                    evtxUrl: reportFileUrls.evtx, csvUrl: reportFileUrls.csv, analyzedFile: filePath.split(/[/\\]/).pop()
+                });
+            }
+            if(eventSource) eventSource.close();
           }
         };
 
         eventSource.onerror = (err) => {
-          console.error('EventSource failed:', err);
-          appendLogMessage('Connection to server lost or an error occurred. Please check console.');
-          // Mark the current or next phase as error
-          let errorPhaseIdx = currentPhaseIndex +1 < statusPhases.length ? currentPhaseIndex + 1 : currentPhaseIndex;
-          errorPhaseIdx = errorPhaseIdx < 0 ? 0 : errorPhaseIdx;
-           if (errorPhaseIdx < statusPhases.length) {
-              const errorPhase = statusPhases[errorPhaseIdx];
-              const statusEl = document.getElementById(`status-${errorPhase.id}`);
-               if (statusEl) {
-                  const iconDiv = statusEl.querySelector('.status-icon');
-                  iconDiv.classList.remove('bg-gray-500/20', 'text-gray-400', 'animate-pulse', 'bg-yellow-500/20', 'text-yellow-400');
-                  iconDiv.classList.add('bg-red-500/20', 'text-red-400');
-                  iconDiv.innerHTML = `<svg fill="currentColor" height="24px" viewBox="0 0 256 256" width="24px" xmlns="http://www.w3.org/2000/svg"><path d="M128,24a104,104,0,1,0,232,128,104.11,104.11,0,0,0-128-24Zm0,192a88,88,0,1,1,88-88A88.1,88.1,0,0,1,128,216Zm-8-80V80a8,8,0,0,1,16,0v56a8,8,0,0,1-16,0Zm8,24a12,12,0,1,1-12-12A12,12,0,0,1,128,160Z"></path></svg>`;
-                  statusEl.querySelector('.status-text').textContent = 'Error';
-              }
+          console.error('EventSource error:', err);
+          appendLiveLog('data: Connection to scan server error/lost.');
+          const stageTextEl = document.getElementById('scan-stage-text');
+          if(stageTextEl) {
+            stageTextEl.textContent = 'Error: Connection lost.';
+            stageTextEl.classList.add('text-red-400');
+          } else {
+             clearAnalysisUI();
+             analysisContentArea.innerHTML = `<div class="text-center p-4"><p class="text-red-400">Error: Connection to scan server lost.</p><button id="try-again-btn" class="mt-2 px-4 py-2 bg-[var(--primary-color)] text-white rounded hover:bg-blue-500">Try Again</button></div>`;
+             document.getElementById('try-again-btn')?.addEventListener('click', clearAnalysisUI);
           }
-
-          eventSource.close();
-          runAutomationBtn.disabled = false;
-          runAutomationBtn.classList.remove('opacity-50', 'cursor-not-allowed');
-          runAutomationBtn.querySelector('span').textContent = 'Run Automation Again';
-          updateFileLinks(); // Show whatever files might have been found
+          if(eventSource) eventSource.close();
         };
-      });
+      }
 
-      // Initialize UI on load
-      resetUI();
-
+      clearAnalysisUI();
+      rotateTip();
     });
   </script>
 </body>

@@ -1,41 +1,33 @@
-# Host-side automation script: automate_sysmon_export_and_convert.py
-# ----------------------------------------------------------
-# This script exports Sysmon logs from the guest VM, converts the .evtx to CSV inside the VM,
-# then copies both the .evtx and .csv files back to the host.
-
 import os
 import subprocess
 import time
 from datetime import datetime
+import argparse # For command-line arguments
+import json # For structured JSON output
+import random # For mocking data
 
 # ── CONFIGURATION ──────────────────────────────────────────────────────────────
-VMRUN = r"C:\Program Files (x86)\VMware\VMware Workstation\vmrun.exe"
-VMX_PATH = r"C:\Users\HP\Documents\Virtual Machines\Windows 10 x64\Windows 10 x64.vmx"
+VMRUN = r"C:\Program Files (x86)\VMware\VMware Player\vmrun.exe"
+VMX_PATH = r"C:\Users\Administrator\Documents\Virtual Machines\Windows 10 x64\windows 10 x64\Windows 10 x64.vmx"
 GUEST_USER = "user"
 GUEST_PASS = "boy"
-SNAPSHOT = "stage 8.7"
 
-# Guest paths
-SYSLOG_GUEST_EVTX = r"C:\Logs\sysmon_log.evtx"      # exported from event log
-SYSLOG_GUEST_CSV  = r"C:\Logs\sysmon_log.csv"       # will be created
+SYSLOG_GUEST_EVTX = r"C:\Logs\sysmon_log.evtx"
+SYSLOG_GUEST_CSV  = r"C:\Logs\sysmon_log.csv"
 
-# PowerShell conversion command inside guest
 CONVERT_COMMAND = (
     r"Import-Module -Name Microsoft.PowerShell.Eventing; "
     r"Get-WinEvent -Path C:\Logs\sysmon_log.evtx | "
     r"Export-Csv -Path C:\Logs\sysmon_log.csv -NoTypeInformation"
 )
 
-# Host output directory
-# Changed to a relative path for consistency with main.py and Render deployment
 HOST_LOG_DIR = "host_log_output"
 if not os.path.isdir(HOST_LOG_DIR):
     os.makedirs(HOST_LOG_DIR, exist_ok=True)
 # ────────────────────────────────────────────────────────────────────────────────
 
 def run_in_guest(command_to_run_in_guest):
-    """Execute a PowerShell command in the VM guest."""
-    print(f"[VMRUN] Executing in guest: {command_to_run_in_guest[:50]}...") # Log partial command
+    print(f"[VMRUN] Executing in guest: {command_to_run_in_guest[:60]}...")
     cmd = [
         VMRUN, "-T", "ws",
         "-gu", GUEST_USER, "-gp", GUEST_PASS,
@@ -44,23 +36,16 @@ def run_in_guest(command_to_run_in_guest):
         "-Command", command_to_run_in_guest
     ]
     try:
-        # Capture output for better logging, though check_call doesn't return it directly
-        # For Popen, you'd use process.communicate()
-        # Using check_call for simplicity as the original script did
         subprocess.check_call(cmd)
         print(f"[VMRUN] Successfully executed in guest.")
     except subprocess.CalledProcessError as e:
         print(f"[VMRUN_ERROR] Failed to execute in guest. Error: {e}")
-        # Potentially re-raise or handle if critical
         raise
 
-
 def copy_from_guest(guest_path, host_path):
-    """Copy file from the VM guest to the host."""
     print(f"[VMRUN] Copying from guest '{guest_path}' to host '{host_path}'...")
     cmd = [
-        VMRUN, "-T", "ws",
-        "-gu", GUEST_USER, "-gp", GUEST_PASS,
+        VMRUN, "-T", "ws", "-gu", GUEST_USER, "-gp", GUEST_PASS,
         "copyFileFromGuestToHost", VMX_PATH,
         guest_path, host_path
     ]
@@ -69,110 +54,142 @@ def copy_from_guest(guest_path, host_path):
         print(f"[VMRUN] Successfully copied '{guest_path}' to '{host_path}'.")
     except subprocess.CalledProcessError as e:
         print(f"[VMRUN_ERROR] Failed to copy from guest. Error: {e}")
-        # Potentially re-raise or handle
         raise
 
-def revert_and_start():
-    """Revert VM to snapshot and ensure it's running."""
-    print(f"[VMRUN] Reverting to snapshot '{SNAPSHOT}'...")
+def ensure_vm_running():
+    print("[VMRUN] Attempting to start VM if not already running...")
     try:
-        subprocess.check_call([VMRUN, "-T", "ws", "revertToSnapshot", VMX_PATH, SNAPSHOT])
-        print(f"[VMRUN] Successfully reverted to snapshot '{SNAPSHOT}'.")
+        subprocess.check_call([VMRUN, "-T", "ws", "start", VMX_PATH, "nogui"])
+        print("[VMRUN] 'start' command issued. VM should be running.")
     except subprocess.CalledProcessError as e:
-        print(f"[VMRUN_ERROR] Failed to revert to snapshot. Error: {e}")
-        raise
+        print(f"[VMRUN_INFO] 'vmrun start' command resulted in an error (possibly already running): {e}. Proceeding...")
 
-    print(f"[VMRUN] Starting VM '{VMX_PATH}'...")
-    try:
-        subprocess.check_call([VMRUN, "-T", "ws", "start", VMX_PATH])
-        print(f"[VMRUN] VM started successfully.")
-    except subprocess.CalledProcessError as e:
-        # It's possible the VM is already running, vmrun start might error in that case.
-        # A more robust check would be to use `vmrun list` and see if it's powered on.
-        # For now, we'll print the error and continue, assuming it might be a non-critical issue.
-        print(f"[VMRUN_WARNING] 'vmrun start' failed. This might be okay if VM was already running. Error: {e}")
-        # Check if VM is running, if not, then it's a critical error
-        # This is a placeholder for a more robust check
-        print("[VMRUN] Assuming VM is running or attempting to continue. Waiting for guest OS to boot...")
-
-
-    # Increased sleep time to ensure guest OS is fully booted and services are ready
     print("[INFO] Waiting for VM to boot and guest tools to be ready (60 seconds)...")
-    time.sleep(60) # Increased wait time
+    time.sleep(60)
 
+def generate_mock_threat_data():
+    """Generates mocked threat data for the report."""
+    threat_levels = ["Low", "Medium", "High", "Critical", "Informational"]
+    malware_families = ["Generic Trojan", "Ransomware.WannaCry", "Spyware.ZeuS", "Adware.Generic", "NotAPotato"]
+    indicators_list = [
+        ["Suspicious network connection to C2 server", "File masquerading as system process", "Registry modification for persistence"],
+        ["Encrypted files with ransom note", "High CPU usage from unknown process"],
+        ["Keystroke logging detected", "Attempts to access sensitive browser data"],
+        ["Unwanted pop-up advertisements", "Browser homepage changed"],
+        ["Benign file characteristics", "No malicious indicators found"]
+    ]
 
-def main():
-    # Ensure print statements are flushed so they appear in Flask stream
+    chosen_level = random.choice(threat_levels)
+    family_index = threat_levels.index(chosen_level) if chosen_level in threat_levels else random.randint(0, len(malware_families)-1)
+
+    return {
+        "threatLevel": chosen_level,
+        "threatFamily": malware_families[family_index % len(malware_families)], # Ensure index is valid
+        "confidence": f"{random.randint(60, 99)}%",
+        "indicators": random.choice(indicators_list) if chosen_level not in ["Low", "Informational"] else indicators_list[-1]
+    }
+
+def main(input_file_path: str):
     import sys
     sys.stdout.reconfigure(line_buffering=True)
     sys.stderr.reconfigure(line_buffering=True)
 
-    print("--- VM Automation Script Started ---")
+    print(f"--- Malware Analysis Script Started (File: {os.path.basename(input_file_path)}) ---")
 
-    # Prepare
-    print("[STAGE] Preparation: Reverting to snapshot and starting VM...")
-    try:
-        revert_and_start()
-    except Exception as e:
-        print(f"[CRITICAL_ERROR] Failed during VM revert/start: {e}. Aborting.")
-        return 1 # Indicate failure
-    print("[STAGE_COMPLETE] VM Reverted and Started.")
+    # Simulate analysis of the input file
+    print(f"[STAGE] Initializing analysis for {os.path.basename(input_file_path)}...")
+    time.sleep(2)
+    print(f"[INFO] File size: {os.path.getsize(input_file_path) if os.path.exists(input_file_path) else 'N/A'} bytes")
+    print(f"[INFO] File type detection (mock): {random.choice(['PE32 executable', 'PDF document', 'ZIP archive'])}")
+    print("[STAGE_COMPLETE] Initial analysis phase complete.")
 
-    timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-    # These paths will be used by the script and printed out for the Flask app to potentially parse
-    global host_evtx_path, host_csv_path # Make them global to be accessible in finally block if needed
-    host_evtx_path = os.path.join(HOST_LOG_DIR, f"sysmon_log_{timestamp}.evtx")
-    host_csv_path  = os.path.join(HOST_LOG_DIR, f"sysmon_log_{timestamp}.csv")
-
-    print(f"[INFO] Target host EVTX path: {host_evtx_path}")
-    print(f"[INFO] Target host CSV path: {host_csv_path}")
+    # Existing VM-based log export logic (simulating part of a deeper analysis)
+    host_evtx_path_str = ""
+    host_csv_path_str = ""
 
     try:
-        # Export Sysmon log
-        print("[STAGE] Exporting Sysmon EVTX inside guest...")
-        # Ensure the C:\Logs directory exists in the guest
-        run_in_guest(f"if (-not (Test-Path -Path C:\\Logs)) {{ New-Item -ItemType Directory -Path C:\\Logs -Force }}")
+        print("[STAGE] Performing deep environment analysis (VM-based log export)...")
+        ensure_vm_running()
+        print("[STAGE_COMPLETE] VM is presumed running for deep analysis.")
+
+        timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+        # Define paths for EVTX and CSV files. These will be part of the report.
+        # Ensure HOST_LOG_DIR is an absolute path or correctly relative for os.path.join
+        abs_host_log_dir = os.path.abspath(HOST_LOG_DIR)
+        host_evtx_path_str = os.path.join(abs_host_log_dir, f"sysmon_log_{timestamp}.evtx")
+        host_csv_path_str = os.path.join(abs_host_log_dir, f"sysmon_log_{timestamp}.csv")
+
+        print(f"[INFO] Target host EVTX path for detailed logs: {host_evtx_path_str}")
+        print(f"[INFO] Target host CSV path for detailed logs: {host_csv_path_str}")
+
+        print("[STAGE] Preparing guest for logs (creating C:\\Logs if not exists)...")
+        run_in_guest("if (-not (Test-Path -Path C:\\Logs)) { New-Item -ItemType Directory -Path C:\\Logs -Force }")
+        print("[STAGE_COMPLETE] Guest log directory ensured.")
+
+        print("[STAGE] Exporting Sysmon EVTX from guest...")
         run_in_guest(f"wevtutil epl Microsoft-Windows-Sysmon/Operational {SYSLOG_GUEST_EVTX}")
-        print("[INFO] Sysmon EVTX export command issued.")
-        # Add a check to see if the file was created in guest, or rely on copy failing
-        time.sleep(5) # Give some time for the export to complete
+        print("[INFO] Sysmon EVTX export command issued. Waiting 5s...")
+        time.sleep(5)
         print("[STAGE_COMPLETE] Sysmon EVTX Exported.")
 
-        # Convert EVTX to CSV inside guest
-        print("[STAGE] Converting EVTX to CSV inside guest...")
+        print("[STAGE] Converting EVTX to CSV in guest...")
         run_in_guest(CONVERT_COMMAND)
-        print("[INFO] EVTX to CSV conversion command issued.")
-        time.sleep(5) # Give some time for the conversion to complete
+        print("[INFO] EVTX to CSV conversion command issued. Waiting 5s...")
+        time.sleep(5)
         print("[STAGE_COMPLETE] EVTX to CSV Converted.")
 
-        # Copy EVTX and CSV to host
-        print("[STAGE] Copying files to host...")
-        print(f"[INFO] Copying EVTX to host: {host_evtx_path}")
-        copy_from_guest(SYSLOG_GUEST_EVTX, host_evtx_path)
+        print("[STAGE] Copying detailed logs to host...")
+        copy_from_guest(SYSLOG_GUEST_EVTX, host_evtx_path_str)
+        copy_from_guest(SYSLOG_GUEST_CSV, host_csv_path_str)
+        print("[STAGE_COMPLETE] Detailed logs copied to host.")
 
-        print(f"[INFO] Copying CSV to host: {host_csv_path}")
-        copy_from_guest(SYSLOG_GUEST_CSV, host_csv_path)
-        print("[STAGE_COMPLETE] Files Copied to Host.")
+        print("[AUTOMATION_SUCCESS] Deep environment analysis completed successfully.")
 
-        print("[AUTOMATION_SUCCESS] All operations completed successfully.")
-        print(f"EVTX_FILE:{host_evtx_path}") # For easy parsing by frontend
-        print(f"CSV_FILE:{host_csv_path}")   # For easy parsing by frontend
+        # Generate mocked threat data
+        threat_data = generate_mock_threat_data()
+
+        # Prepare final JSON output
+        scan_complete_data = {
+            "event": "scan_complete",
+            "data": {
+                "evtxUrl": host_evtx_path_str, # Full path for backend to resolve
+                "csvUrl": host_csv_path_str,   # Full path for backend to resolve
+                "threatLevel": threat_data["threatLevel"],
+                "threatFamily": threat_data["threatFamily"],
+                "confidence": threat_data["confidence"],
+                "indicators": threat_data["indicators"],
+                "analyzedFile": os.path.basename(input_file_path)
+            }
+        }
+        # Print the JSON object as a single line for easy parsing by the backend
+        print(json.dumps(scan_complete_data))
+        exit_code = 0
 
     except subprocess.CalledProcessError as e:
         print(f"[ERROR] A VMRUN command failed: {e}")
-        print("[AUTOMATION_FAILED] Automation script encountered an error during VMRUN execution.")
-        return 1 # Indicate failure
+        print("[AUTOMATION_FAILED] Script encountered an error during VMRUN execution.")
+        exit_code = 1
     except Exception as e:
         print(f"[ERROR] An unexpected error occurred: {e}")
-        print("[AUTOMATION_FAILED] Automation script encountered an unexpected error.")
-        return 1 # Indicate failure
+        print(f"[ERROR_DETAILS] Type: {type(e).__name__}, Args: {e.args}")
+        import traceback
+        print(f"[ERROR_TRACEBACK]\n{traceback.format_exc()}")
+        print("[AUTOMATION_FAILED] Script encountered an unexpected error.")
+        exit_code = 1
     finally:
-        print("--- VM Automation Script Finished ---")
+        print("--- Malware Analysis Script Finished ---")
 
-    return 0 # Indicate success
+    return exit_code
 
 if __name__ == "__main__":
-    exit_code = main()
-    # The exit code will be picked up by Popen.wait() in the Flask app
-    # The SCRIPT_DONE or SCRIPT_ERROR messages in Flask app are more for client-side logic
-    os._exit(exit_code) # Use os._exit to prevent SystemExit from being caught if script is imported
+    parser = argparse.ArgumentParser(description="Malware Analysis Script (mocked).")
+    parser.add_argument("input_file", help="Path to the file to be 'analyzed'.")
+    args = parser.parse_args()
+
+    if not os.path.exists(args.input_file):
+        print(f"[CRITICAL_ERROR] Input file not found: {args.input_file}")
+        os._exit(2) # Specific exit code for file not found
+
+    # os._exit is used to ensure the process exits with the specific code,
+    # especially when called via subprocess from the FastAPI app.
+    os._exit(main(args.input_file))

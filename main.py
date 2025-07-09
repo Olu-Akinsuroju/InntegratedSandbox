@@ -3,9 +3,11 @@ import subprocess
 import time
 import asyncio # Required for FastAPI's async nature with subprocess
 import logging
+import shutil # For saving uploaded files
+from pathlib import Path # For path manipulation
 
-from fastapi import FastAPI, Request, HTTPException
-from fastapi.responses import HTMLResponse, StreamingResponse, FileResponse
+from fastapi import FastAPI, Request, HTTPException, UploadFile, File, Form
+from fastapi.responses import HTMLResponse, StreamingResponse, FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from fastapi.middleware.cors import CORSMiddleware
@@ -26,109 +28,164 @@ app.add_middleware(
 )
 
 # Configuration
-# For Render, use relative paths. The HOST_LOG_DIR will be created in the container.
-# The VMX_PATH and other vmrun specific paths in `automate_sysmon_export_and_convert.py`
-# will NOT work on Render as-is, as Render cannot run VMware VMs.
-# This script is being adapted for Render deployment structure, but the VM operations themselves
-# are environment-dependent and won't function on Render's standard service instances.
-HOST_LOG_DIR = "host_log_output"  # Relative path for Render
-AUTOMATION_SCRIPT_PATH = "automate_sysmon_export_and_convert.py" # Assumed to be in the same dir
+BASE_DIR = Path(__file__).resolve().parent
+HOST_LOG_DIR = BASE_DIR / "host_log_output"  # Main directory for script outputs and uploads
+UPLOADS_DIR = HOST_LOG_DIR / "uploads"       # Subdirectory for uploads
+AUTOMATION_SCRIPT_PATH = BASE_DIR / "automate_sysmon_export_and_convert.py"
 
-# Ensure HOST_LOG_DIR exists
-if not os.path.isdir(HOST_LOG_DIR):
-    os.makedirs(HOST_LOG_DIR, exist_ok=True)
-    logger.info(f"Created HOST_LOG_DIR at {os.path.abspath(HOST_LOG_DIR)}")
+# Ensure directories exist
+HOST_LOG_DIR.mkdir(parents=True, exist_ok=True)
+UPLOADS_DIR.mkdir(parents=True, exist_ok=True)
+logger.info(f"Host log directory: {HOST_LOG_DIR.resolve()}")
+logger.info(f"Uploads directory: {UPLOADS_DIR.resolve()}")
+
 
 # Mount static files (if any separate CSS/JS files are used later)
 # app.mount("/static", StaticFiles(directory="static"), name="static")
 
 # Setup templates
-templates = Jinja2Templates(directory="templates")
+templates = Jinja2Templates(directory=str(BASE_DIR / "templates"))
 
 @app.get("/", response_class=HTMLResponse)
 async def read_root(request: Request):
     """Serves the main HTML page."""
     return templates.TemplateResponse("index.html", {"request": request})
 
-async def run_script_and_stream_logs():
+@app.post("/upload")
+async def upload_file_for_scan(file: UploadFile = File(...)):
     """
-    Runs the automation script and streams its output for Server-Sent Events.
+    Handles file uploads, saves the file temporarily, and returns its path.
+    """
+    if not file.filename:
+        raise HTTPException(status_code=400, detail="No file provided or filename is empty.")
+
+    # Sanitize filename (basic) - more robust sanitization might be needed
+    safe_filename = Path(file.filename).name
+    if not safe_filename: # Handles cases like ".." or "." as filename
+        raise HTTPException(status_code=400, detail="Invalid filename.")
+
+    temp_file_path = UPLOADS_DIR / safe_filename
+
+    try:
+        with temp_file_path.open("wb") as buffer:
+            shutil.copyfileobj(file.file, buffer)
+        logger.info(f"File '{safe_filename}' uploaded successfully to '{temp_file_path}'.")
+        # Return the path relative to the project base, or a unique identifier
+        # For simplicity, returning path relative to HOST_LOG_DIR as the script might need that context
+        return JSONResponse(content={"message": "File uploaded successfully", "filePath": str(temp_file_path.resolve())})
+    except Exception as e:
+        logger.error(f"Error saving uploaded file '{safe_filename}': {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Could not save file: {str(e)}")
+    finally:
+        await file.close()
+
+
+async def run_scan_script_and_stream_logs(file_path_to_scan: str):
+    """
+    Runs the automation/scan script with the given file path and streams its output.
     """
     process = None
+    # Validate file_path_to_scan - ensure it's within UPLOADS_DIR for security
     try:
-        # For Render, explicitly use the Python interpreter available in the environment
-        # Ensure the script has execute permissions if needed, though `python script.py` handles it.
-        command = ["python", AUTOMATION_SCRIPT_PATH]
+        resolved_scan_path = Path(file_path_to_scan).resolve()
+        if not resolved_scan_path.is_file():
+            logger.error(f"Scan target file not found: {resolved_scan_path}")
+            yield f"data: ERROR: Scan target file not found: {file_path_to_scan}\n\n"
+            yield "data: SCRIPT_ERROR\n\n"
+            return
 
-        logger.info(f"Starting automation script: {' '.join(command)}")
-        yield "data: Automation process starting...\n\n"
+        # Security check: Ensure the file to scan is within the UPLOADS_DIR
+        if UPLOADS_DIR.resolve() not in resolved_scan_path.parents:
+            logger.error(f"Security alert: Attempt to scan file outside of uploads directory: {resolved_scan_path}")
+            yield f"data: ERROR: Invalid file path for scanning.\n\n"
+            yield "data: SCRIPT_ERROR\n\n"
+            return
 
-        # asyncio.create_subprocess_exec is preferred for FastAPI
+    except Exception as path_e:
+        logger.error(f"Error resolving or validating scan file path '{file_path_to_scan}': {path_e}")
+        yield f"data: ERROR: Invalid file path provided for scanning: {path_e}\n\n"
+        yield "data: SCRIPT_ERROR\n\n"
+        return
+
+    try:
+        command = ["python", str(AUTOMATION_SCRIPT_PATH), str(resolved_scan_path)]
+
+        logger.info(f"Starting scan script: {' '.join(command)}")
+        yield "data: Scan process starting...\n\n"
+
         process = await asyncio.create_subprocess_exec(
             *command,
             stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.STDOUT  # Redirect stderr to stdout
+            stderr=asyncio.subprocess.STDOUT
         )
 
-        # Stream output
         while True:
-            if process.stdout is None:
-                break
+            if process.stdout is None: break
             line_bytes = await process.stdout.readline()
-            if not line_bytes: # EOF
-                break
+            if not line_bytes: break
             line = line_bytes.decode('utf-8', errors='replace').strip()
+            # Ensure SSE format: each message should be prefixed with "data: " and end with "\n\n"
             yield f"data: {line}\n\n"
-            await asyncio.sleep(0.05) # Small delay to allow client to update, and prevent tight loop
+            await asyncio.sleep(0.05)
 
-        await process.wait() # Wait for the subprocess to exit
+        await process.wait()
         return_code = process.returncode
+        logger.info(f"Scan script finished for '{resolved_scan_path.name}' with exit code {return_code}")
 
-        logger.info(f"Automation script finished with exit code {return_code}")
+        # The script itself is expected to print the final JSON or SCRIPT_DONE/SCRIPT_ERROR
+        # No need to add extra SCRIPT_DONE/ERROR here if the script handles it.
+        if return_code != 0 and not line.startswith('{"event": "scan_complete"'): # if script failed and didn't send completion
+             yield f"data: Script execution failed with code {return_code} (final event might be missing).\n\n"
+             yield f"data: SCRIPT_ERROR\n\n"
 
-        if return_code == 0:
-            yield "data: Automation completed successfully.\n\n"
-            yield "data: SCRIPT_DONE\n\n"
-        else:
-            yield f"data: Automation failed with error code {return_code}.\n\n"
-            yield f"data: SCRIPT_ERROR\n\n"
 
     except FileNotFoundError:
-        logger.error(f"ERROR: Automation script '{AUTOMATION_SCRIPT_PATH}' not found.")
-        yield f"data: ERROR: Automation script '{AUTOMATION_SCRIPT_PATH}' not found. Please check the path.\n\n"
+        logger.error(f"ERROR: Scan script '{AUTOMATION_SCRIPT_PATH}' not found.")
+        yield f"data: ERROR: Scan script '{AUTOMATION_SCRIPT_PATH}' not found.\n\n"
         yield "data: SCRIPT_ERROR\n\n"
     except Exception as e:
-        logger.error(f"An error occurred during automation: {str(e)}", exc_info=True)
-        yield f"data: An server-side error occurred: {str(e)}\n\n"
+        logger.error(f"An error occurred during scan script execution: {str(e)}", exc_info=True)
+        yield f"data: A server-side error occurred during scan: {str(e)}\n\n"
         yield "data: SCRIPT_ERROR\n\n"
     finally:
-        if process and process.returncode is None: # Check if process is still running
-            logger.warning("Process was still running, attempting to terminate.")
+        if process and process.returncode is None:
+            logger.warning(f"Scan script process for '{file_path_to_scan}' was still running, attempting to terminate.")
             try:
                 process.terminate()
-                await asyncio.wait_for(process.wait(), timeout=5.0) # Wait for termination
-                logger.info("Process terminated.")
+                await asyncio.wait_for(process.wait(), timeout=5.0)
+                logger.info("Scan script process terminated.")
                 yield "data: Process was terminated.\n\n"
             except asyncio.TimeoutError:
-                logger.error("Failed to terminate process in time, attempting kill.")
+                logger.error("Failed to terminate scan script process in time, attempting kill.")
                 process.kill()
                 await process.wait()
-                logger.info("Process killed.")
+                logger.info("Scan script process killed.")
                 yield "data: Process was killed due to timeout on termination.\n\n"
             except Exception as e_term:
-                logger.error(f"Error during process termination: {e_term}")
+                logger.error(f"Error during scan script process termination: {e_term}")
                 yield f"data: Error during process termination: {e_term}\n\n"
 
 
-@app.get("/run-automation")
-async def run_automation_stream():
+@app.get("/start-scan") # Changed from /run-automation
+async def start_scan_stream(request: Request, file_path: str):
     """
-    Endpoint to trigger the automation script and stream logs via SSE.
+    Endpoint to trigger the scan script for a given file_path and stream logs via SSE.
+    `file_path` should be the path to the uploaded file.
     """
-    return StreamingResponse(run_script_and_stream_logs(), media_type="text/event-stream")
+    logger.info(f"Received /start-scan request for file_path: {file_path}")
+    if not file_path:
+        raise HTTPException(status_code=400, detail="file_path query parameter is required.")
+
+    # Security: Basic check to ensure file_path is not attempting traversal using ".."
+    # More robust validation happens in run_scan_script_and_stream_logs
+    if ".." in file_path:
+        logger.warning(f"Potential directory traversal attempt in file_path: {file_path}")
+        raise HTTPException(status_code=400, detail="Invalid file_path.")
+
+    return StreamingResponse(run_scan_script_and_stream_logs(file_path), media_type="text/event-stream")
 
 @app.get("/download/{filename:path}")
-async def download_file(filename: str):
+async def download_generated_file(filename: str): # Renamed for clarity
     """
     Serves files from the HOST_LOG_DIR.
     The ':path' converter allows filenames to include subdirectories if any were created.
