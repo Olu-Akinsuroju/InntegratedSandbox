@@ -23,7 +23,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-AGENT_URL = "http://172.31.47.28:8000"
+AGENT_URL = "http://13.51.207.164:8000" # Windows VM Agent URL Updated
 
 BASE_DIR = Path(__file__).resolve().parent
 HOST_LOG_DIR = BASE_DIR / "host_log_output"
