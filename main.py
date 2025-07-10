@@ -23,7 +23,8 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-AGENT_URL = "http://13.51.207.164:8000" # Windows VM Agent URL Updated
+AGENT_URL = "http://ec2-13-51-207-164.eu-north-1.compute.amazonaws.com:8000"
+ # Windows VM Agent URL Updated
 
 BASE_DIR = Path(__file__).resolve().parent
 HOST_LOG_DIR = BASE_DIR / "host_log_output"
